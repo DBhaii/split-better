@@ -28,8 +28,8 @@ export async function sendFriendRequest(formData: FormData) {
   const existingFriendship = await prisma.friendship.findFirst({
     where: {
       OR: [
-        { requesterId: requester.id, addresseeId: addressee.id },
-        { requesterId: addressee.id, addresseeId: requester.id }
+        { userId: requester.id, friendId: addressee.id },
+        { userId: addressee.id, friendId: requester.id }
       ]
     }
   });
@@ -39,8 +39,8 @@ export async function sendFriendRequest(formData: FormData) {
   // Create the pending request
   await prisma.friendship.create({
     data: {
-      requesterId: requester.id,
-      addresseeId: addressee.id,
+      userId: requester.id,
+      friendId: addressee.id,
       status: "PENDING"
     }
   });
