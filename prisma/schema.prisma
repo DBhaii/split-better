@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String           @id @default(uuid())
+  name             String
+  email            String           @unique
+  
+  // THE FIX: We removed "expensesPaid" and added "payments"
+  payments         ExpensePayment[] 
+  
+  splits           ExpenseSplit[]
+  groups           Group[]          @relation("GroupMembers") 
+  sentFriendships     Friendship[] @relation("SentFriendships")
+  receivedFriendships Friendship[] @relation("ReceivedFriendships")
+  activities       ActivityLog[]  
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String   
+  friendId  String   
+  status    String   @default("PENDING") 
+  createdAt DateTime @default(now())
+
+  sender    User     @relation("SentFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  receiver  User     @relation("ReceivedFriendships", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId]) 
+}
+
+model Group {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  members     User[]    @relation("GroupMembers")
+  expenses    Expense[]
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  actionType  String   
+  description String   
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  expenseId   String?  
+  groupId     String?  
+}
+
+// --- THE ADVANCED EXPENSE ENGINE ---
+
+model Expense {
+  id          String   @id @default(uuid())
+  description String
+  totalAmount Float
+  createdAt   DateTime @default(now())
+  
+  groupId     String?
+  group       Group?   @relation(fields: [groupId], references: [id])
+
+  // Supports multiple people funding the expense
+  payments    ExpensePayment[] 
+  
+  // The complex split data
+  splits      ExpenseSplit[]
+}
+
+// Tracks exactly WHO paid WHAT upfront
+model ExpensePayment {
+  id          String   @id @default(uuid())
+  amountPaid  Float
+  
+  expenseId   String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id]) // THE FIX: Opposite relation now exists in User
+}
+
+// Tracks exactly HOW the debt is divided
+model ExpenseSplit {
+  id          String   @id @default(uuid())
+  
+  amountOwed  Float    
+  
+  // The Masterpiece logic: EQUAL, EXACT, PERCENT, SHARE, ADJUSTMENT
+  splitType   String   @default("EQUAL") 
+  splitValue  Float?   
+
+  expenseId   String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
